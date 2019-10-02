@@ -1,0 +1,25 @@
+/8010.h/1.2/Tue Apr  1 17:16:35 2003//
+/Makefile/1.4/Thu May 12 19:44:36 2005//
+/ac97_codec.c/1.4/Mon Oct 23 18:49:04 2006//
+/ac97_codec.h/1.1/Thu Jul  4 19:55:27 2002//
+/audio.c/1.5/Mon Oct 23 18:49:04 2006//
+/audio.h/1.1/Thu Jul  4 19:55:27 2002//
+/cardwo.c/1.2/Tue Apr  1 17:16:36 2003//
+/cardwo.h/1.2/Tue Apr  1 17:16:36 2003//
+/efxmgr.c/1.4/Thu Jan 12 20:30:04 2006//
+/efxmgr.h/1.2/Tue Apr  1 17:16:36 2003//
+/emu_wrapper.h/1.6/Fri May  4 15:20:15 2007//
+/emuadxmg.c/1.1/Thu Jul  4 19:55:27 2002//
+/hwaccess.c/1.2/Tue Apr  1 17:16:37 2003//
+/hwaccess.h/1.2/Tue Apr  1 17:16:37 2003//
+/icardwav.h/1.1/Thu Jul  4 19:55:27 2002//
+/irqmgr.c/1.1/Thu Jul  4 19:55:27 2002//
+/irqmgr.h/1.1/Thu Jul  4 19:55:27 2002//
+/list.h/1.1/Thu Jul  4 19:55:27 2002//
+/main.c/1.7/Mon Oct 23 18:49:04 2006//
+/mixer.c/1.4/Sun Oct 24 15:07:15 2004//
+/timer.c/1.2/Tue Apr  1 17:16:38 2003//
+/timer.h/1.1/Thu Jul  4 19:55:27 2002//
+/voicemgr.c/1.2/Tue Apr  1 17:16:38 2003//
+/voicemgr.h/1.2/Tue Apr  1 17:16:38 2003//
+D/cvs////

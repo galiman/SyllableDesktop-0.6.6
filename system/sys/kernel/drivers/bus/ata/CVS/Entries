@@ -1,0 +1,15 @@
+/Makefile/1.7/Sat Jan 27 18:26:24 2007//
+/ata.c/1.9/Sun May 11 20:36:48 2008//
+/ata.h/1.10/Wed Jan 31 07:27:05 2007//
+/ata_command.c/1.9/Sun Jun 10 19:19:00 2007//
+/ata_drive.c/1.3/Fri Feb 23 22:53:23 2007//
+/ata_io.c/1.3/Wed Jan 31 07:27:05 2007//
+/ata_port.c/1.9/Sun Mar 18 19:19:48 2007//
+/ata_private.h/1.2/Mon Jun 19 19:10:12 2006//
+/ata_probe.c/1.8/Sun Mar 18 19:19:48 2007//
+/ata_regs.h/1.2/Wed Aug  4 09:48:42 2004//
+/atapi.c/1.6/Wed Jun  7 19:47:50 2006//
+/atapi.h/1.3/Wed Jun  7 19:47:50 2006//
+/atapi_drive.c/1.6/Sat Mar 19 16:03:07 2005//
+/atapi_regs.h/1.2/Wed Aug  4 09:48:42 2004//
+D

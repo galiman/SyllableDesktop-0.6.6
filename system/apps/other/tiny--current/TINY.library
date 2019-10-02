@@ -1,0 +1,460 @@
+REBOL [
+	Title:		"TINY text parsing and manipulation library"
+	Version:	0.3.5
+	Author:		"Kaj de Vos"
+	Rights: {
+		Copyright (c) 2007,2008 Kaj de Vos
+		License: BSD
+	}
+	Purpose:
+		"TINY Is Not YAML. Parses and manipulates strings, text files and data objects in directory hierarchies."
+	Example:	"parse-map %example.txt"
+	Needs:		"REBOL or ORCA"
+	Notes:		"Tested with REBOL 2, REBOL 3 and partly with ORCA"
+
+	Tabs:		4
+]
+
+
+; General functions
+
+tab: #"^-"  ; Already defined in R3
+whitespace: charset reduce [#" " tab newline]
+
+find-whitespace: func ["Finds first space, tab or line break."
+	text [string!]
+][
+	find text whitespace
+]
+
+whitespace?: func ["Tests for space, tab and line break."
+	char [char!]
+][
+	found? find to-string char whitespace
+]
+
+; Already defined in R3:
+
+if error? try [split "" ""] [
+	split: func ["Splits string into a block."
+		string [string! file!]
+		separator [string! char!]
+		/local
+			start stop
+			result
+	][
+;		ORCA TODO?: REBOL parse can scan for char!
+;		separator: to-string separator
+		result: copy []
+
+		parse string [start:
+			any [
+;				ORCA TODO: REBOL parse can start with to?
+;				ORCA TODO: REBOL parse can use end: as a variable?
+				stop: separator (append result copy/part start stop) start:
+				| to separator
+;				ORCA FIXME: input string is returned instead of result:
+				| to end (append result copy start  return result)
+			]
+		]
+		result
+	]
+]
+
+
+; Parsing functions
+
+parse-lines: func ["Loads a text into a block, discarding comments and optionally empty lines. Modifies non-block!s."
+	text [block! string! file! url!]
+	/blanks  ; "Leave empty lines."
+	/local lines line
+][
+	unless block? text [
+;		ORCA FIXME: "read/lines excess 2/5": path depth?
+		text: either string? text [split text newline] [read/lines text]
+	]
+
+	lines: copy []
+
+	foreach line text [
+;		REBOL FIXME: first "" bombs out:
+		if all [any ["" <> trim copy line  blanks]  #";" <> first line]  ; Drop comments and empty lines
+			[append lines line]
+	]
+	lines
+]
+
+parse-key-value: func ["Splits string into a key and a possible value on whitespace after the key."
+	line [string!]
+	/local where
+][
+	reduce either where: find-whitespace line: trim copy line [
+		[
+			copy/part line where
+			trim/head copy where
+		]
+	][
+		[
+			line
+			none
+		]
+	]
+]
+
+parse-map: func ["Parses key/value pairs into a lookup table."
+	text [block! string! file!]
+	/local map line block last-key value margin
+][
+	unless block? text [text: parse-lines text]
+;	ORCA FIXME: hash implementation:
+;	map: make hash! 10
+	map: copy []
+
+	foreach line text [
+		either not whitespace? first line [  ; A key
+;			ORCA TODO: implement block setting:
+;			set [last-key value] parse-key-value line
+			block: parse-key-value line
+			last-key: block/1
+
+			margin: none
+
+			repend map [
+				last-key
+
+				either value: block/2
+					[reduce [value]]  ; A key with a value
+					[copy []]  ; A single key
+			]
+		][  ; Starts with whitespace, so it's a list value
+			unless margin [
+				margin: 1
+				while [whitespace? pick line margin]
+					[margin: margin + 1]
+;prin [margin " "]
+			]
+;			ORCA TODO: implement variables in path:
+;			append map/:last-key
+			append select map last-key
+				copy at line margin
+		]
+	]
+	map
+]
+
+parse-list: func ["Normalises value into a text block."
+	value [block! string! none!]
+][
+	either string? value
+		[parse-lines value]
+		[copy value]  ; Assume it's already a block, or none
+]
+
+
+; Data manipulation functions
+
+save-text: func ["Writes a text list to a file."
+	file [file!]
+	text [block!]
+	/local f line
+][
+;	ORCA TODO: implement write/lines:
+;	f: open/new file
+	write file ""
+	foreach line text [
+;		insert f line
+		write/append file join line newline
+	]
+;	close f
+]
+
+into-list: func ["Forces values into a block."
+	value [block! string! none!]
+][
+	either string? value
+		[parse value none]
+		[copy value]  ; Assume it's already a block, or none
+]
+
+form-list: func ["Joins list value into a space-separated string."
+	value [block! string! none!]
+][
+	either block? value
+		[form value]
+		[copy value]  ; Assume it's already a string, or none
+]
+
+column: func ["Extracts a column from a table of possibly unsplit rows."
+	table [block!]
+	index [number!]
+	/local column row
+][
+	column: copy []
+
+	foreach row table [
+		append column pick
+;			ORCA FIXME: split function corrupts column return value:
+;			either block? row [row] [into-list row]
+			either block? row [row] [parse row none]
+			index
+	]
+	column
+]
+
+overlay-map: func ["Overlays a map with another one. Modifies parent map."
+	parent [block!]
+	child [block!]
+	/local key value where
+][
+	foreach [key value] child [
+		either where: find parent key
+			[change/only next where value]
+			[repend parent [key value]]
+	]
+	parent
+]
+
+
+; Data abstraction objects
+
+data-proto: context [
+	root: none
+
+	new: func ["Creates a proxy object for structured data on disk."
+		root' [file! string! word! path!]
+	][
+		make self [root: to-file root']
+	]
+
+	exists: func ["Determines if a key exists in the structured object."
+		where [path! word! string! block!]
+		/local node
+	][
+		either exists? node: join root ["/" to-file where] [
+			yes
+		][
+			; Resolve the path ourselves
+			none
+		]
+	]
+
+	list: func ["Reads a list of keys from the structured object."
+		where [path! word! string! block!]
+		/local dir
+	][
+		either exists? dir: root/:where [
+			read join dir "/"
+			; Skip backup files
+			; Look for main file
+		][
+			; Resolve the path ourselves
+			copy []
+		]
+	]
+
+	get: func ["Reads a value from the structured object."
+		where [path! word! string! block!]
+		/binary "Returns an exact binary value."
+		/lines "Returns a block of text lines."
+		/local node level
+	][
+;probe root
+;probe where
+		node: copy root
+
+;		ORCA FIXME: to-path string!
+;		(REBOL/ORCA FIXME: foreach path!)
+;		foreach level to-path where [
+; ORCA FIXME: segfault if path!:
+;;probe to-block where
+		foreach level to-block where [
+;probe node
+; ORCA FIXME: returns if path!:
+; ORCA FIXME: prints as word instead of string:
+;probe level
+			either not file? node [
+				; Already resolved to file content
+				node: select parse-map node to-string level
+			][
+				either not exists? node [
+					either exists? append node ".txt" [
+						; A map file with an extension
+;probe node
+;probe level
+						node: select parse-map node to-string level
+					][
+						; Node not found
+						return none
+					]
+				][
+					either not dir? node [
+						; A map file
+						node: select parse-map node to-string level
+					][
+						; Drill down into a subdirectory
+
+						either exists? where: join node ["/" level] [
+							node: either dir? where [
+								; Another directory level
+								where
+							][
+;								either tail? level [
+									; An individual key file
+;									either binary [read/binary where][read where]
+;								][
+									; A map file
+;									read/lines where
+;								]
+								either lines [read/lines where] [either binary [read/binary where] [read where]]
+							]
+						][
+							either exists? append where ".txt" [
+								; A file with an extension
+								node: read where
+							][
+;								REBOL FIXME: to-block to-path file!:
+;								ORCA FIXME: to-path file!:
+;								either exists? where: join node ["/" last to-block to-path node] [
+								either exists? repend node ["/" last split node #"/"] [
+									; A main file
+									node: select parse-map node to-string level
+								][
+									either exists? append node ".txt" [
+										; A main file with an extension
+										node: select parse-map node to-string level
+									][
+										; Node not found
+										return none
+									]
+								]
+							]
+						]
+;probe where
+					]
+				]
+			]
+		]
+		node
+	]
+
+	set: func ["Stores a value into the structured object."
+		where [path! string! block!]
+		value
+		/local node level
+	][
+probe where
+		node: copy root
+
+		foreach level to-block where [
+probe node
+probe level
+		]
+	]
+]
+
+
+; Templating functions
+
+eval: func [
+	expr [string!]
+	opening [string!] closing [string!]  ; "Dummies."
+;	ORCA FIXME: variable looses its value if local:
+	/local result
+][
+;	ORCA TODO: implement set/any:
+;	ORCA FIXME: result sometimes unset! (if expr not copied):
+	set/any 'result try [do copy expr]
+;	ORCA FIXME: error! not acted on if expression folded into condition:
+	either error? result [
+		either quiet [
+			""
+		][
+			result: disarm :result
+;			ORCA TODO: implement error!/id:
+			reform ["*** ERROR" result/id "in" rejoin [{"} expr {"}]]
+		]
+	][
+;		ORCA TODO: implement get/any:
+		either unset? get/any 'result [
+			""
+		][
+			:result
+		]
+	]
+]
+
+build-string: func ["Returns template text replacing {tags} with their evaluated results."
+	template [string!]
+	eval [function!]
+	quiet  ; "Do not show errors in the output."
+	/with  ; "Delimiters (two characters wide)."
+		opening [string!] closing [string!]
+	/local
+;		string
+		part start stop
+		result
+][
+;	ORCA FIXME:
+;		Something is horribly wrong with memory management.
+;		Changing anything in the following few lines corrupts string results later on.
+;	out: make string! 100
+	result: copy ""
+;	dummy: make string! 100
+
+	parse/all template either with [[  ; TODO: support delimiters other than two characters wide
+		any [
+;			ORCA FIXME: end:
+;			ORCA FIXME: break:
+;			end break
+;			ORCA TODO: implement copy:
+;			ORCA TODO: implement number! skip:
+;			| #"{" [copy string to #"}" 1 skip | copy string to end] (append result eval string)
+			opening start: [
+				to closing stop: 2 skip (part: copy/part start stop
+					append result either quiet [eval/quiet part opening closing] [eval part opening closing]
+				)
+				| to end (unless quiet [repend result ["^/*** ERROR: no closing " closing]]  return result)
+			]
+			| start: [
+				to opening stop: (append result copy/part start stop)
+				| to end (return append result start)
+			]
+		]
+	]][[
+		any [
+			"{" start: [
+				to "}" stop: skip (part: copy/part start stop
+					append result either quiet [eval/quiet part "{" "}"] [eval part "{" "}"]
+				)
+				| to end (unless quiet [append result "^/*** ERROR: no closing }"]  return result)
+			]
+			| start: [
+				to "{" stop: (append result copy/part start stop)
+				| to end (return append result start)
+			]
+		]
+	]]
+	result
+]
+
+build-template: func ["Returns template text replacing {tags} with their evaluated results."
+	template [block! string! file! url!]
+	eval [function!]
+	/quiet  ; "Do not show errors in the output."
+	/with  ; "Delimiters (two characters wide)."
+		opening [string!] closing [string!]
+	/local line result
+][
+	result: copy []
+
+	foreach line
+		switch/default to-string type? template ["block" [template] "string" [reduce [template]]] [read/lines template]
+	[
+		either with [
+			append result build-string/with line :eval quiet opening closing
+		][
+			append result build-string line :eval quiet
+		]
+	]
+	result
+]
